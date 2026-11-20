@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, PlayCircle } from "lucide-react";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
 
@@ -90,14 +90,5 @@ export function DemoCaseButton({
       </Button>
       {error && <span className="text-xs text-red-600">{error}</span>}
     </span>
-  );
-}
-
-export function ExploreLink({ className }: { className?: string }) {
-  return (
-    <a href="#scenes" className={cn(buttonVariants({ variant: "ghost", size: "lg" }), className)}>
-      看看能问什么
-      <ArrowRight className="h-4 w-4" />
-    </a>
   );
 }

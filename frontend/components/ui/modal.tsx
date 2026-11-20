@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { PressRipples, pressClass, usePressFeedback } from "@/components/ui/press-feedback";
 
 export function Modal({
   open,
@@ -26,6 +27,7 @@ export function Modal({
   wide?: boolean;
 }) {
   const [mounted, setMounted] = React.useState(false);
+  const closePress = usePressFeedback();
   React.useEffect(() => setMounted(true), []);
 
   React.useEffect(() => {
@@ -72,8 +74,17 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="rounded-lg p-2 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            className={cn(
+              "rounded-lg p-2 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+              pressClass(closePress),
+            )}
+            onPointerDown={closePress.handlers.onPointerDown}
+            onPointerUp={closePress.handlers.onPointerUp}
+            onPointerCancel={closePress.handlers.onPointerCancel}
+            onPointerLeave={closePress.handlers.onPointerLeave}
+            onAnimationEnd={closePress.onAnimationEnd}
           >
+            <PressRipples ripples={closePress.ripples} onDone={closePress.removeRipple} />
             <X className="h-5 w-5" />
           </button>
         </div>

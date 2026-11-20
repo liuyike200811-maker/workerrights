@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, Send, SkipForward } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PressRipples, pressClass, usePressFeedback } from "@/components/ui/press-feedback";
 import { cn } from "@/lib/utils";
 import type { Question } from "@/types/api";
 
@@ -20,6 +21,7 @@ export function QuickReplyBar({
 }) {
   const [selected, setSelected] = React.useState<string[]>([]);
   const [lastKey, setLastKey] = React.useState(question.key);
+  const skipPress = usePressFeedback();
 
   if (lastKey !== question.key) {
     setLastKey(question.key);
@@ -62,8 +64,17 @@ export function QuickReplyBar({
             type="button"
             onClick={() => onSend("跳过")}
             disabled={disabled}
-            className="inline-flex items-center gap-1 text-[10px] font-medium text-ink-400 transition hover:text-ink-700 disabled:opacity-50"
+            className={cn(
+              "inline-flex items-center gap-1 text-[10px] font-medium text-ink-400 transition hover:text-ink-700 disabled:opacity-50",
+              pressClass(skipPress),
+            )}
+            onPointerDown={skipPress.handlers.onPointerDown}
+            onPointerUp={skipPress.handlers.onPointerUp}
+            onPointerCancel={skipPress.handlers.onPointerCancel}
+            onPointerLeave={skipPress.handlers.onPointerLeave}
+            onAnimationEnd={skipPress.onAnimationEnd}
           >
+            <PressRipples ripples={skipPress.ripples} onDone={skipPress.removeRipple} />
             <SkipForward className="h-3 w-3" />
             跳过这个问题
           </button>
@@ -73,21 +84,14 @@ export function QuickReplyBar({
         {options.map((option) => {
           const active = selected.includes(option.label);
           return (
-            <button
+            <QuickReplyChip
               key={option.label}
-              type="button"
+              label={option.label}
+              active={active}
+              multi={multi}
               disabled={disabled}
               onClick={() => (multi ? toggle(option.label) : sendSingle(option.label, option.value))}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50",
-                active
-                  ? "border-brand-700 bg-brand-800 text-white"
-                  : "border-ink-200 bg-white text-ink-600 hover:border-brand-300 hover:text-brand-800",
-              )}
-            >
-              {multi && active && <Check className="h-3 w-3" />}
-              {option.label}
-            </button>
+            />
           );
         })}
       </div>
@@ -104,5 +108,44 @@ export function QuickReplyBar({
         </div>
       )}
     </div>
+  );
+}
+
+function QuickReplyChip({
+  label,
+  active,
+  multi,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  multi: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const press = usePressFeedback();
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50",
+        active
+          ? "border-brand-700 bg-brand-800 text-white"
+          : "border-ink-200 bg-white text-ink-600 hover:border-brand-300 hover:text-brand-800",
+        pressClass(press),
+      )}
+      onPointerDown={press.handlers.onPointerDown}
+      onPointerUp={press.handlers.onPointerUp}
+      onPointerCancel={press.handlers.onPointerCancel}
+      onPointerLeave={press.handlers.onPointerLeave}
+      onAnimationEnd={press.onAnimationEnd}
+    >
+      <PressRipples ripples={press.ripples} onDone={press.removeRipple} />
+      {multi && active && <Check className="h-3 w-3" />}
+      {label}
+    </button>
   );
 }

@@ -22,14 +22,17 @@ import { useCase } from "@/components/case/case-provider";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { PressLink } from "@/components/ui/press-feedback";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/services/api";
-import type { AnalysisResponse, EvidenceItem, LegalAnalysisItem, RelationshipNode } from "@/types/api";
+import type { AnalysisResponse, CaseFacts, EvidenceItem, LegalAnalysisItem, RelationshipNode } from "@/types/api";
+import { evidenceState } from "@/lib/facts";
+import { intakeStage } from "@/lib/intake-progress";
 import { cn, verificationLabel } from "@/lib/utils";
 
 export default function AnalysisPage() {
-  const { caseId } = useCase();
+  const { caseId, caseData } = useCase();
   const [analysis, setAnalysis] = React.useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -85,6 +88,16 @@ export default function AnalysisPage() {
   }
 
   const legalMap = new Map(analysis.legal_analysis.map((item) => [item.id, item]));
+  const facts: CaseFacts = caseData?.facts || {};
+  const stage = caseData
+    ? intakeStage(caseData.progress, caseData.intake, caseData.messages, caseData.status)
+    : null;
+  const confirmed = stage
+    ? stage.confirmed
+    : analysis.status === "ready" || analysis.status === "planned";
+  const completenessLabel = stage
+    ? `核心事实 ${stage.core.done}/${stage.core.total} · ${confirmed ? "已确认" : "尚未确认"}`
+    : `信息完整度 ${analysis.completeness.percent}%`;
   const visibleLegal = showAllLegal
     ? analysis.legal_analysis
     : analysis.legal_analysis.slice(0, 4);
@@ -111,9 +124,7 @@ export default function AnalysisPage() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="default">案件分析工作台</Badge>
-                <Badge variant={analysis.completeness.percent === 100 ? "success" : "warning"}>
-                  信息完整度 {analysis.completeness.percent}%
-                </Badge>
+                <Badge variant={confirmed ? "success" : "warning"}>{completenessLabel}</Badge>
                 {analysis.is_demo && <Badge variant="warning">虚构演示</Badge>}
               </div>
               <h2 className="mt-3 text-xl font-black tracking-tight text-ink-900 sm:text-2xl">
@@ -145,13 +156,13 @@ export default function AnalysisPage() {
                 {exporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 PDF
               </Button>
-              <Link
+              <PressLink
                 href={`/case/${caseId}/action-plan`}
                 className={cn(buttonVariants({ size: "sm" }), "h-9")}
               >
                 生成行动指南
                 <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              </PressLink>
             </div>
           </div>
           {exportError && <p className="mt-3 text-xs text-red-600">{exportError}</p>}
@@ -240,24 +251,28 @@ export default function AnalysisPage() {
             <EvidenceColumn
               title="已经拥有的材料"
               items={analysis.evidence.have}
+              facts={facts}
               tone="success"
               empty="尚未整理出已有材料。"
             />
             <EvidenceColumn
               title="还需要寻找的材料"
               items={analysis.evidence.needed}
+              facts={facts}
               tone="warning"
               empty="暂无额外必补材料。"
             />
             <EvidenceColumn
               title="可替代或辅助证明"
               items={analysis.evidence.alternatives}
+              facts={facts}
               tone="info"
               empty="暂无替代材料建议。"
             />
             <EvidenceColumn
               title="需要进一步核实"
               items={analysis.evidence.verify}
+              facts={facts}
               tone="neutral"
               empty="暂无待核实项。"
             />
@@ -291,7 +306,9 @@ export default function AnalysisPage() {
                     const item = legalMap.get(basis);
                     return (
                       <span key={basis} className="rounded-md border border-ink-200 bg-ink-50 px-1.5 py-0.5 text-[10px] text-ink-500">
-                        {item ? `${item.article}｜${item.document_title.replace("中华人民共和国", "")}` : basis}
+                        {item
+                          ? `${item.article}｜${item.document_title.replace("中华人民共和国", "")}`
+                          : "依据条文待补充"}
                       </span>
                     );
                   })}
@@ -382,19 +399,19 @@ export default function AnalysisPage() {
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-ink-400">{analysis.jurisdiction.note}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link
+              <PressLink
                 href={`/case/${caseId}/action-plan`}
                 className={cn(buttonVariants({ size: "sm" }), "h-9")}
               >
-                查看分步行动指南
+                查看行动指南
                 <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-              <Link
+              </PressLink>
+              <PressLink
                 href={`/case/${caseId}/form-assistant`}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9")}
               >
-                官方填报辅助
-              </Link>
+                材料整理参考
+              </PressLink>
             </div>
           </CardContent>
         </Card>
@@ -437,11 +454,13 @@ function RelationshipCard({ node }: { node: RelationshipNode }) {
 function EvidenceColumn({
   title,
   items,
+  facts,
   tone,
   empty,
 }: {
   title: string;
   items: EvidenceItem[];
+  facts: CaseFacts;
   tone: "success" | "warning" | "info" | "neutral";
   empty: string;
 }) {
@@ -461,18 +480,35 @@ function EvidenceColumn({
         <p className="mt-2 text-[11px] text-ink-400">{empty}</p>
       ) : (
         <ul className="mt-2 space-y-2">
-          {items.map((item) => (
-            <li key={`${title}-${item.key}-${item.label}`} className="text-[11px] leading-relaxed text-ink-600">
-              <span className="font-semibold text-ink-800">{item.label}</span>
-              {item.proves?.length ? `：${item.proves.join("、")}` : ""}
-              {item.reason ? `：${item.reason}` : ""}
-              {item.how_to_get ? <span className="mt-0.5 block text-[10px] text-ink-400">{item.how_to_get}</span> : null}
-            </li>
-          ))}
+          {items.map((item) => {
+            const state = evidenceState(item, facts);
+            const detail = state?.note || item.reason;
+            return (
+              <li key={`${title}-${item.key}-${item.label}`} className="text-[11px] leading-relaxed text-ink-600">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-semibold text-ink-800">{item.label}</span>
+                  {state && <Badge variant={state.tone}>{state.label}</Badge>}
+                </div>
+                {item.proves?.length ? (
+                  <p className="mt-0.5 text-ink-500">能证明：{item.proves.join("、")}</p>
+                ) : null}
+                {detail ? <p className="mt-0.5">{detail}</p> : null}
+                {item.how_to_get ? <span className="mt-0.5 block text-[10px] text-ink-400">{item.how_to_get}</span> : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
   );
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, "");
+  } catch {
+    return "来源网站";
+  }
 }
 
 function LegalCard({ item }: { item: LegalAnalysisItem }) {
@@ -516,9 +552,16 @@ function LegalCard({ item }: { item: LegalAnalysisItem }) {
             href={item.official_url}
             target="_blank"
             rel="noreferrer noopener"
+            title={
+              item.verification_status === "verified"
+                ? "该来源链接已人工核验到条文原文。"
+                : "这是来源网站，不一定是本条文所在页面，打开后请按文件名称自行查找。"
+            }
             className="inline-flex items-center gap-1 font-medium text-brand-800 hover:underline"
           >
-            官方来源
+            {item.official_source_name
+              ? `在${item.official_source_name}查原文`
+              : `打开来源网站 ${hostOf(item.official_url)}`}
             <ArrowRight className="h-3 w-3" />
           </a>
         )}

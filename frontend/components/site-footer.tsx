@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink, ShieldCheck } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { GuideLink } from "@/components/guide/guide-link";
 
 const sources = [
   { label: "国家法律法规数据库", href: "https://flk.npc.gov.cn/" },
@@ -12,7 +13,7 @@ const sources = [
 
 export function SiteFooter() {
   return (
-    <footer className="mt-20 border-t border-ink-200 bg-white">
+    <footer className="mt-20 border-t border-white/70 bg-[linear-gradient(180deg,rgba(255,252,248,0.45),rgba(248,236,226,0.85))] backdrop-blur-sm">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_1fr_1fr]">
         <div>
           <BrandLogo />
@@ -46,10 +47,10 @@ export function SiteFooter() {
           <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-ink-400">产品说明</h3>
           <ul className="mt-3 space-y-2 text-sm text-ink-600">
             <li>
-              <Link href="/#how" className="hover:text-brand-800">工作原理</Link>
+              <GuideLink module="how">工作原理</GuideLink>
             </li>
             <li>
-              <Link href="/#scope" className="hover:text-brand-800">服务范围</Link>
+              <GuideLink module="scope">服务范围</GuideLink>
             </li>
             <li>
               <Link href="/cases" className="hover:text-brand-800">我的案件</Link>

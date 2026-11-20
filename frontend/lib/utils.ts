@@ -46,7 +46,7 @@ export function statusLabel(status: string): string {
       collecting: "补充信息中",
       ready: "信息已确认",
       planned: "已生成行动方案",
-    }[status] || status
+    }[status] || "本地演示中"
   );
 }
 
@@ -60,6 +60,41 @@ export function verificationLabel(status: string): string {
       ready: "可填写",
       missing: "待补充",
       verify: "需核对",
-    }[status] || status
+    }[status] || "待核验"
   );
+}
+
+const CHANNEL_CATEGORY_LABELS: Record<string, string> = {
+  labor_supervision: "劳动保障监察",
+  official_platform: "国家级线上反映平台",
+  hotline: "服务热线",
+  industry_authority: "行业主管部门",
+  arbitration: "劳动人事争议仲裁",
+  legal_aid: "法律援助",
+  litigation: "法院诉讼服务",
+};
+
+export function channelCategoryLabel(category?: string | null): string {
+  if (!category) return "其他渠道";
+  return CHANNEL_CATEGORY_LABELS[category] || "其他渠道";
+}
+
+export interface EntryLinkInfo {
+  label: string;
+  hint: string;
+}
+
+// 未逐条核验前，官方链接只能是机构首页，不能伪装成具体办理入口。
+export function entryLink(verificationStatus?: string | null, name?: string | null): EntryLinkInfo {
+  if (verificationStatus === "verified") {
+    return { label: "打开办理入口", hint: "该入口已人工核验。" };
+  }
+  const who = name ? `${name}` : "该机构";
+  if (verificationStatus === "pending") {
+    return { label: "打开机构官网首页", hint: `${who}的页面结构待核验，具体办理入口请在官网内查找或电话确认。` };
+  }
+  return {
+    label: "打开机构官网首页",
+    hint: `${who}的具体办理入口尚未逐条核验，请按官网提示查找。`,
+  };
 }

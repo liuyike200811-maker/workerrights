@@ -25,11 +25,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
+import { PressLink, PressRipples, pressClass, usePressFeedback } from "@/components/ui/press-feedback";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/services/api";
-import type { FormAssistantResponse, FormField } from "@/types/api";
-import { cn } from "@/lib/utils";
+import type { CaseFacts, FormAssistantResponse, FormField } from "@/types/api";
+import { contractRowNote, evidenceRowState, periodNeedsDates, periodValue } from "@/lib/facts";
+import { cn, entryLink } from "@/lib/utils";
 
 const statusStyle: Record<FormField["status"], { label: string; variant: "success" | "warning" | "accent" | "neutral" }> = {
   ready: { label: "可填写", variant: "success" },
@@ -38,8 +40,13 @@ const statusStyle: Record<FormField["status"], { label: string; variant: "succes
   official_only: { label: "仅官方填写", variant: "neutral" },
 };
 
+// 后端目前把"约三个月"这类时长直接放进起止日期字段，复制过去会填成假日期。
+function durationAsDateRisk(field: FormField): boolean {
+  return field.key === "work_period" && Boolean(field.value) && !field.value!.includes("至");
+}
+
 export default function FormAssistantPage() {
-  const { caseId } = useCase();
+  const { caseId, caseData } = useCase();
   const [data, setData] = React.useState<FormAssistantResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -56,7 +63,7 @@ export default function FormAssistantPage() {
         if (active) setData(result);
       })
       .catch((err) => {
-        if (active) setError(err instanceof Error ? err.message : "无法生成填报辅助。");
+        if (active) setError(err instanceof Error ? err.message : "无法生成材料整理参考。");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -81,20 +88,21 @@ export default function FormAssistantPage() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Spinner label="正在整理官方表单填写参考…" />
+        <Spinner label="正在整理要交给官方的材料参考…" />
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <Alert variant="danger" title="无法生成填报辅助">
+      <Alert variant="danger" title="无法生成材料整理参考">
         {error || "请稍后重试。"}
       </Alert>
     );
   }
 
   const step = data.steps[activeStep];
+  const facts: CaseFacts = caseData?.facts || {};
   const readyFields = data.steps.reduce(
     (sum, item) =>
       sum + item.fields.filter((field) => field.status === "ready" || field.status === "official_only").length,
@@ -123,17 +131,18 @@ export default function FormAssistantPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="dark">官方平台填报辅助</Badge>
+                <Badge variant="dark">欠薪材料整理参考</Badge>
                 <Badge variant="neutral">{data.platform.name}</Badge>
                 <Badge variant="warning">
-                  字段结构待核验
+                  字段结构与顺序待核验
                 </Badge>
               </div>
               <h2 className="mt-3 text-xl font-black tracking-tight text-ink-900 sm:text-2xl">
                 逐字段给你解释和参考内容，你本人核对后提交
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-500">
-                本页面模拟真实填报顺序。每个字段都说明“是什么意思、该填什么、你现在有什么、还缺什么”。
+                这里按材料类别分组整理，不代表官方页面的字段名称和先后顺序。
+                每个字段都说明“是什么意思、该填什么、你现在有什么、还缺什么”。
                 本产品不会自动登录或代替你提交。
               </p>
               <div className="mt-4 flex max-w-md items-center gap-3">
@@ -166,35 +175,15 @@ export default function FormAssistantPage() {
                 (field) => field.status === "ready" || field.status === "official_only",
               ).length;
               return (
-                <button
+                <StepTab
                   key={item.id}
-                  type="button"
+                  index={index}
+                  title={item.title}
+                  fieldCount={item.fields.length}
+                  ready={ready}
+                  active={activeStep === index}
                   onClick={() => setActiveStep(index)}
-                  className={cn(
-                    "flex min-w-[150px] items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition lg:min-w-0 lg:w-full",
-                    activeStep === index ? "bg-brand-900 text-white" : "text-ink-600 hover:bg-ink-50",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-                      activeStep === index ? "bg-white/15 text-white" : "bg-ink-100 text-ink-500",
-                    )}
-                  >
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold">{item.title}</span>
-                    <span
-                      className={cn(
-                        "mt-0.5 block text-[9px]",
-                        activeStep === index ? "text-brand-200" : "text-ink-400",
-                      )}
-                    >
-                      {item.fields.length ? `${ready}/${item.fields.length} 字段可用` : "操作步骤"}
-                    </span>
-                  </span>
-                </button>
+                />
               );
             })}
           </div>
@@ -218,7 +207,7 @@ export default function FormAssistantPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brand-600">
-                    第 {activeStep + 1} 步 / 共 {data.steps.length} 步
+                    整理顺序 第 {activeStep + 1} 组 / 共 {data.steps.length} 组（参考，非官方顺序）
                   </p>
                   <CardTitle className="mt-1">{step.title}</CardTitle>
                 </div>
@@ -252,17 +241,20 @@ export default function FormAssistantPage() {
                 <div className="mt-4">
                   {activeStep === 0 && (
                     <div className="rounded-xl border border-ink-200 p-4">
-                      <p className="text-sm font-semibold text-ink-900">从官方入口进入</p>
+                      <p className="text-sm font-semibold text-ink-900">从官方平台进入</p>
                       <p className="mt-1 text-xs leading-relaxed text-ink-500">{data.platform.access_note}</p>
-                      <a
+                      <PressLink
                         href={data.platform.official_url}
                         target="_blank"
                         rel="noreferrer noopener"
                         className={cn(buttonVariants({ size: "sm" }), "mt-3 h-9")}
                       >
-                        打开官方页面
+                        {entryLink(data.platform.verification_status, data.platform.name).label}
                         <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
+                      </PressLink>
+                      <p className="mt-2 text-[10px] leading-relaxed text-ink-400">
+                        {entryLink(data.platform.verification_status, data.platform.name).hint}
+                      </p>
                       <p className="mt-2 text-[10px] leading-relaxed text-ink-400">
                         {data.platform.source_note}
                       </p>
@@ -297,6 +289,11 @@ export default function FormAssistantPage() {
                         <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-ink-50 p-3 text-[11px] leading-relaxed text-ink-600">
                           {data.copy_summary}
                         </pre>
+                        {periodNeedsDates(facts) && (
+                          <p className="mt-2 text-[10px] leading-relaxed text-amber-800">
+                            其中「工作时间」目前只有时长，官方表单要日期时请自己补具体起止日期。
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -319,10 +316,10 @@ export default function FormAssistantPage() {
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 ) : (
-                  <Link href={`/case/${caseId}/action-plan`} className={cn(buttonVariants({ size: "sm" }), "h-9")}>
+                  <PressLink href={`/case/${caseId}/action-plan`} className={cn(buttonVariants({ size: "sm" }), "h-9")}>
                     回到行动指南
                     <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
+                  </PressLink>
                 )}
               </div>
             </CardContent>
@@ -345,6 +342,12 @@ export default function FormAssistantPage() {
               <div className="whitespace-pre-wrap rounded-xl border border-ink-200 bg-ink-50/60 p-4 text-xs leading-6 text-ink-700">
                 {data.formal_statement}
               </div>
+              {periodNeedsDates(facts) && (
+                <p className="mt-2 flex gap-1.5 text-[11px] leading-relaxed text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  陈述中的工作时间写的是「{periodValue(facts)}」。官方表单要填起止日期时，请按你的记录补上具体日期，不要把这个时长当日期填进去。
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -370,20 +373,36 @@ export default function FormAssistantPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.evidence_directory.map((item, index) => (
-                      <tr key={`${item.label}-${index}`} className="border-b border-ink-100 align-top">
-                        <td className="py-2.5 pr-3 font-semibold text-ink-800">{item.label}</td>
-                        <td className="py-2.5 pr-3 leading-relaxed text-ink-500">{item.proves}</td>
-                        <td className="py-2.5 pr-3">
-                          <Badge
-                            variant={item.status === "已有" ? "success" : item.status === "待补充" ? "warning" : "neutral"}
-                          >
-                            {item.status}
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 leading-relaxed text-ink-500">{item.how_to_get}</td>
-                      </tr>
-                    ))}
+                    {data.evidence_directory.map((item, index) => {
+                      const rowState = evidenceRowState(item.label, facts);
+                      // 后端把合同列在"待补充"里，本人已说明没签时不能再写成"未确认存在"；签了的情况保留原状态。
+                      const state = rowState?.label === "已有" ? null : rowState;
+                      const contradicted = Boolean(state) && item.proves.includes("未确认");
+                      return (
+                        <tr key={`${item.label}-${index}`} className="border-b border-ink-100 align-top">
+                          <td className="py-2.5 pr-3 font-semibold text-ink-800">{item.label}</td>
+                          <td className="py-2.5 pr-3 leading-relaxed text-ink-500">
+                            {contradicted ? contractRowNote(facts) : item.proves}
+                          </td>
+                          <td className="py-2.5 pr-3">
+                            <Badge
+                              variant={
+                                state
+                                  ? state.tone
+                                  : item.status === "已有"
+                                    ? "success"
+                                    : item.status === "待补充"
+                                      ? "warning"
+                                      : "neutral"
+                              }
+                            >
+                              {state ? state.label : item.status}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 leading-relaxed text-ink-500">{item.how_to_get}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -454,6 +473,14 @@ function FormFieldCard({ field }: { field: FormField }) {
         )}
       </div>
 
+      {durationAsDateRisk(field) ? (
+        <p className="mt-2 flex gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-900">
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+          上面整理出来的只是工作时长，不是起止日期。官方平台的开始、结束时间请留空，或想起具体月份后再补，
+          不要把“约三个月”直接填进日期栏。
+        </p>
+      ) : null}
+
       {field.note && (
         <p className="mt-2 flex gap-1.5 text-[10px] leading-relaxed text-ink-400">
           <Info className="mt-0.5 h-3 w-3 shrink-0" />
@@ -469,12 +496,62 @@ function FormFieldCard({ field }: { field: FormField }) {
             </span>
           ))}
         </div>
-        {field.value && field.status !== "official_only" ? (
+        {field.value && field.status !== "official_only" && !durationAsDateRisk(field) ? (
           <CopyButton text={field.value} label="复制此字段" compact />
         ) : field.status === "missing" ? (
           <span className="text-[10px] text-amber-700">补充后生成参考内容</span>
         ) : null}
       </div>
     </div>
+  );
+}
+
+function StepTab({
+  index,
+  title,
+  fieldCount,
+  ready,
+  active,
+  onClick,
+}: {
+  index: number;
+  title: string;
+  fieldCount: number;
+  ready: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const press = usePressFeedback();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex min-w-[150px] items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition lg:min-w-0 lg:w-full",
+        active ? "bg-brand-900 text-white" : "text-ink-600 hover:bg-ink-50",
+        pressClass(press),
+      )}
+      onPointerDown={press.handlers.onPointerDown}
+      onPointerUp={press.handlers.onPointerUp}
+      onPointerCancel={press.handlers.onPointerCancel}
+      onPointerLeave={press.handlers.onPointerLeave}
+      onAnimationEnd={press.onAnimationEnd}
+    >
+      <PressRipples ripples={press.ripples} onDone={press.removeRipple} />
+      <span
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+          active ? "bg-white/15 text-white" : "bg-ink-100 text-ink-500",
+        )}
+      >
+        {index + 1}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-semibold">{title}</span>
+        <span className={cn("mt-0.5 block text-[9px]", active ? "text-brand-200" : "text-ink-400")}>
+          {fieldCount ? `${ready}/${fieldCount} 字段可用` : "操作步骤"}
+        </span>
+      </span>
+    </button>
   );
 }

@@ -1,4 +1,4 @@
-import type { CaseFacts, EvidenceCatalogItem } from "@/types/api";
+import type { CaseFacts, EvidenceCatalogItem, EvidenceItem } from "@/types/api";
 
 import { formatAmount } from "@/lib/utils";
 
@@ -46,6 +46,12 @@ export function periodValue(facts: CaseFacts): string {
   return "待核实";
 }
 
+// 只说了时长、没说起止日期时，正式陈述里的"约三个月"不能当成日期使用，页面要提醒补。
+export function periodNeedsDates(facts: CaseFacts): boolean {
+  if (facts.work_start || facts.work_end) return false;
+  return Boolean(facts.duration_text || facts.duration_months);
+}
+
 export function wageValue(facts: CaseFacts): string {
   const parts: string[] = [];
   if (facts.wage_basis) parts.push(facts.wage_basis);
@@ -58,7 +64,7 @@ export function wageValue(facts: CaseFacts): string {
 export function evidenceLabels(keys: string[] | undefined, catalog: EvidenceCatalogItem[]): string {
   if (!keys?.length) return "待核实";
   const map = new Map(catalog.map((item) => [item.key, item.label]));
-  return keys.map((key) => map.get(key) || key).join("、");
+  return keys.map((key) => map.get(key) || "其他材料").join("、");
 }
 
 export function factRows(facts: CaseFacts, catalog: EvidenceCatalogItem[]) {
@@ -77,7 +83,12 @@ export function factRows(facts: CaseFacts, catalog: EvidenceCatalogItem[]) {
     {
       key: "contract",
       label: "书面合同",
-      value: facts.has_contract === "yes" ? "已签" : facts.has_contract === "no" ? "未签" : "待核实",
+      value:
+        facts.has_contract === "yes"
+          ? "已签"
+          : facts.has_contract === "no"
+            ? "已确认未签"
+            : "还没问到",
       known: Boolean(facts.has_contract),
     },
     {
@@ -113,8 +124,64 @@ export const CHECK_LABELS: Record<string, string> = {
   evidence: "证据材料",
 };
 
+const OPTIONAL_QUESTION_LABELS: Record<string, string> = {
+  district: "区/县",
+  project_info: "项目名称与总包单位",
+  prior_report: "此前是否反映过",
+  owed_confirm: "欠款金额复核",
+  confirm: "信息确认",
+};
+
+export function checkLabel(key: string): string {
+  return CHECK_LABELS[key] || OPTIONAL_QUESTION_LABELS[key] || "其他信息";
+}
+
 export function missingChecks(checks: Record<string, boolean>): string[] {
   return Object.entries(checks)
     .filter(([, done]) => !done)
-    .map(([key]) => CHECK_LABELS[key] || key);
+    .map(([key]) => checkLabel(key));
+}
+
+export type ContractState = "signed" | "not-signed" | "unknown";
+
+export function contractState(facts: CaseFacts): ContractState {
+  if (facts.has_contract === "yes") return "signed";
+  if (facts.has_contract === "no") return "not-signed";
+  return "unknown";
+}
+
+export interface EvidenceStateBadge {
+  label: string;
+  tone: "success" | "warning" | "neutral";
+  note?: string;
+}
+
+// 合同是否签署，用户说得出口时就是"已确认未签"，不能和"没问到"混成同一句话。
+export function evidenceState(item: EvidenceItem, facts: CaseFacts): EvidenceStateBadge | null {
+  if (item.key !== "contract") return null;
+  const state = contractState(facts);
+  if (state === "not-signed") {
+    return {
+      label: "已确认未签",
+      tone: "warning",
+      note: "这是你本人说明的情况，不是遗漏项；下面按“已有材料之外还需要什么”来看。",
+    };
+  }
+  if (state === "signed") {
+    return { label: "已有", tone: "success", note: "你已说明签了书面合同，请准备好原件或照片。" };
+  }
+  return { label: "尚待核实", tone: "neutral" };
+}
+
+// 证据目录里合同那一行由后端只给文案，这里按材料名识别，用本人回答纠正"未确认存在"的说法。
+export function evidenceRowState(label: string, facts: CaseFacts): EvidenceStateBadge | null {
+  if (!label.includes("合同")) return null;
+  return evidenceState({ key: "contract", label }, facts);
+}
+
+export function contractRowNote(facts: CaseFacts): string {
+  const state = contractState(facts);
+  if (state === "not-signed") return "你已说明双方没有签订书面合同，这里按“没有合同”整理，不是漏问。";
+  if (state === "signed") return "你已说明签了书面合同，请准备原件或照片。";
+  return "有没有书面合同还没有问到，可以在对话里补充。";
 }

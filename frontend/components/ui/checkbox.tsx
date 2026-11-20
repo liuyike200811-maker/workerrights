@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 
+import { PressRipples, pressClass, usePressFeedback } from "@/components/ui/press-feedback";
 import { cn } from "@/lib/utils";
 
 export function Checkbox({
@@ -19,6 +20,7 @@ export function Checkbox({
   disabled?: boolean;
   className?: string;
 }) {
+  const press = usePressFeedback();
   return (
     <button
       type="button"
@@ -29,9 +31,16 @@ export function Checkbox({
       className={cn(
         "flex w-full items-start gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60",
         checked ? "border-brand-300 bg-brand-50/70" : "border-ink-200 bg-white hover:border-ink-300",
+        pressClass(press),
         className,
       )}
+      onPointerDown={press.handlers.onPointerDown}
+      onPointerUp={press.handlers.onPointerUp}
+      onPointerCancel={press.handlers.onPointerCancel}
+      onPointerLeave={press.handlers.onPointerLeave}
+      onAnimationEnd={press.onAnimationEnd}
     >
+      <PressRipples ripples={press.ripples} onDone={press.removeRipple} />
       <span
         className={cn(
           "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition",

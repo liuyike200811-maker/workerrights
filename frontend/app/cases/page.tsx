@@ -100,13 +100,13 @@ export default function CasesPage() {
             <Spinner label="正在读取案件…" />
           </div>
         ) : cases.length === 0 ? (
-          <div className="mt-10 rounded-3xl border border-dashed border-ink-300 bg-white px-6 py-14 text-center">
+          <div className="mt-10 rounded-3xl border border-dashed border-ink-300/80 bg-white/60 px-6 py-14 text-center backdrop-blur-sm">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-800">
               <FolderOpen className="h-6 w-6" />
             </span>
             <h2 className="mt-4 text-lg font-bold text-ink-900">还没有案件</h2>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-500">
-              用日常语言说说遇到的欠薪情况，Agent 会一次问一个问题，帮你整理成可用的维权材料。
+              用日常语言说说遇到的问题，Agent 会一次问一个问题，帮你整理成可用的维权材料。
             </p>
             <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <StartCaseButton />
@@ -118,7 +118,7 @@ export default function CasesPage() {
             {cases.map((item) => (
               <div
                 key={item.id}
-                className="rounded-2xl border border-ink-200 bg-white p-4 shadow-card transition hover:border-brand-200 sm:p-5"
+                className="rounded-2xl border border-white/75 bg-white/75 p-4 shadow-card backdrop-blur-sm transition hover:border-brand-200 sm:p-5"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
@@ -150,7 +150,7 @@ export default function CasesPage() {
                     <div className="mt-3 flex max-w-sm items-center gap-2">
                       <Progress value={item.progress.percent} className="h-1.5" />
                       <span className="shrink-0 text-[10px] font-medium text-ink-400">
-                        {item.progress.done}/{item.progress.total}
+                        核心事实 {item.progress.done}/{item.progress.total}
                       </span>
                     </div>
                   </div>

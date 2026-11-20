@@ -17,7 +17,8 @@ import { LegalSourcesModal } from "@/components/case/legal-sources-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { CHECK_LABELS, factRows, missingChecks } from "@/lib/facts";
+import { checkLabel, factRows, missingChecks } from "@/lib/facts";
+import { intakeStage, unconfirmedNotice } from "@/lib/intake-progress";
 import { statusLabel } from "@/lib/utils";
 
 export function CaseInfoPanel({ compact = false }: { compact?: boolean }) {
@@ -29,6 +30,7 @@ export function CaseInfoPanel({ compact = false }: { compact?: boolean }) {
   const catalog = meta?.evidence_catalog || [];
   const rows = factRows(caseData.facts, catalog);
   const missing = missingChecks(caseData.progress.checks);
+  const stage = intakeStage(caseData.progress, caseData.intake, caseData.messages, caseData.status);
   const unknownEntries = Object.entries(caseData.intake.unknowns || {});
 
   return (
@@ -39,15 +41,27 @@ export function CaseInfoPanel({ compact = false }: { compact?: boolean }) {
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-400">案件信息</p>
             <p className="mt-1 text-sm font-semibold text-ink-900">{statusLabel(caseData.status)}</p>
           </div>
-          <Badge variant={caseData.intake.confirmed ? "success" : "warning"}>
-            {caseData.intake.confirmed ? "已确认" : "补充中"}
+          <Badge variant={stage.confirmed ? "success" : "warning"}>
+            {stage.confirmed ? "已确认" : stage.fullButUnconfirmed ? "尚未确认" : "补充中"}
           </Badge>
         </div>
 
         <div className="mt-3 flex items-center gap-3">
-          <Progress value={caseData.progress.percent} className="h-1.5 flex-1" />
-          <span className="text-[10px] font-bold text-brand-900">{caseData.progress.percent}%</span>
+          <Progress value={stage.barValue} className="h-1.5 flex-1" />
+          <span className="text-[10px] font-bold text-brand-900">
+            核心 {stage.core.done}/{stage.core.total}
+          </span>
         </div>
+        <p className="mt-1.5 text-[10px] leading-relaxed text-ink-400">
+          {stage.optional.total ? `可选信息 ${stage.optional.done}/${stage.optional.total} · ` : ""}
+          {stage.confirmed ? "你已确认" : "你尚未确认"}
+        </p>
+        {stage.fullButUnconfirmed && (
+          <p className="mt-2 flex gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] leading-relaxed text-amber-900">
+            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+            {unconfirmedNotice(stage)}
+          </p>
+        )}
 
         <div className="mt-4 divide-y divide-ink-100">
           {rows.map((row) => (
@@ -77,7 +91,7 @@ export function CaseInfoPanel({ compact = false }: { compact?: boolean }) {
         {unknownEntries.length > 0 && (
           <p className="mt-2 text-[10px] leading-relaxed text-ink-400">
             以下信息已标记为待核实，不影响继续整理：
-            {unknownEntries.map(([key]) => CHECK_LABELS[key] || key).join("、")}
+            {unknownEntries.map(([key]) => checkLabel(key)).join("、")}
           </p>
         )}
 

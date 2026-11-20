@@ -7,9 +7,6 @@ import {
   ClipboardList,
   Info,
   MapPin,
-  Mic,
-  MicOff,
-  Send,
   Settings2,
 } from "lucide-react";
 
@@ -18,14 +15,15 @@ import { CaseInfoPanel } from "@/components/case/case-info-panel";
 import { ChatBubble, TypingBubble } from "@/components/case/chat-message";
 import { AssistantMessage } from "@/components/case/assistant-message";
 import { FactsEditor } from "@/components/case/facts-editor";
+import { PromptComposer } from "@/components/case/prompt-composer";
 import { QuickReplyBar } from "@/components/case/quick-replies";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { Textarea } from "@/components/ui/input";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { factRows, locationValue } from "@/lib/facts";
-import { cn, formatAmount } from "@/lib/utils";
+import { intakeStage } from "@/lib/intake-progress";
+import { formatAmount } from "@/lib/utils";
 import { api } from "@/services/api";
 import type { ChatMessage } from "@/types/api";
 
@@ -100,6 +98,7 @@ export default function ChatPage() {
   const facts = caseData.facts;
   const catalog = meta?.evidence_catalog || [];
   const mobileRows = factRows(facts, catalog);
+  const stage = intakeStage(caseData.progress, caseData.intake, messages, caseData.status);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -112,7 +111,7 @@ export default function ChatPage() {
                 ? `陈述欠薪 ${formatAmount(facts.owed_amount, facts.owed_amount_approx)}`
                 : "欠薪金额待核实"}
               {" · "}
-              {caseData.progress.done}/{caseData.progress.total} 项信息
+              {stage.headline}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => setInfoOpen(true)}>
@@ -193,52 +192,24 @@ export default function ChatPage() {
                 {speech.error}
               </Alert>
             )}
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void send(input);
+            <PromptComposer
+              value={input}
+              onChange={setInput}
+              onSend={(text) => void send(text)}
+              onStop={() => streamController.current?.abort()}
+              busy={sending}
+              placeholder={
+                caseData.intake.confirmed
+                  ? "还有补充或问题？可以继续告诉我…"
+                  : "用平时说话的方式回答，不用懂法律…"
+              }
+              mic={{
+                supported: speech.supported,
+                listening: speech.listening,
+                onToggle: () => (speech.listening ? speech.stop() : speech.start()),
               }}
-              className="flex items-end gap-2"
-            >
-              <div className="relative flex-1">
-                <Textarea
-                  value={input}
-                  onChange={(event) => setInput(event.target.value.slice(0, 2000))}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void send(input);
-                    }
-                  }}
-                  rows={1}
-                  placeholder={
-                    caseData.intake.confirmed
-                      ? "还有补充或问题？可以继续告诉我…"
-                      : "用平时说话的方式回答，不用懂法律…"
-                  }
-                  className="min-h-[48px] max-h-32 resize-none pr-14"
-                  aria-label="输入你的回答"
-                />
-                <button
-                  type="button"
-                  onClick={() => (speech.listening ? speech.stop() : speech.start())}
-                  title={speech.supported ? "语音输入（Chrome/Edge）" : "当前浏览器不支持语音输入"}
-                  className={cn(
-                    "absolute bottom-2 right-2 rounded-lg p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
-                    speech.listening
-                      ? "bg-red-50 text-red-600"
-                      : "text-ink-400 hover:bg-ink-100 hover:text-ink-700",
-                  )}
-                  aria-label={speech.listening ? "停止语音输入" : "开始语音输入"}
-                >
-                  {speech.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </button>
-              </div>
-              <Button type="submit" size="icon" disabled={!input.trim() || sending} aria-label="发送">
-                <Send className="h-4 w-4" />
-              </Button>
-              {sending && <Button type="button" variant="outline" onClick={() => streamController.current?.abort()}>停止</Button>}
-            </form>
+              onEditInfo={() => setEditOpen(true)}
+            />
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] text-ink-400">
               <span className="inline-flex items-center gap-1">
                 <Info className="h-3 w-3" />
@@ -257,7 +228,7 @@ export default function ChatPage() {
 
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-[10px] text-ink-400">
           <MapPin className="h-3.5 w-3.5 text-brand-700" />
-          服务范围：河南省 · 建筑工地欠薪。语音输入依赖浏览器能力，不会上传音频到本产品服务器。
+          服务范围：河南省。语音输入依赖浏览器能力，不会上传音频到本产品服务器。
         </div>
       </div>
 

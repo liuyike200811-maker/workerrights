@@ -110,9 +110,16 @@ export function LegalSourcesModal({ open, onClose }: { open: boolean; onClose: (
                         href={item.official_url}
                         target="_blank"
                         rel="noreferrer noopener"
+                        title={
+                          item.verification_status === "verified"
+                            ? "该来源链接已人工核验。"
+                            : "这是来源网站，打开后请按文件名自行查找条文原文。"
+                        }
                         className="inline-flex items-center gap-1 text-[11px] text-ink-500 hover:text-brand-800"
                       >
-                        {item.official_source_name || "官方来源"}
+                        {item.official_source_name
+                          ? `在${item.official_source_name}查原文`
+                          : "打开来源网站"}
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}

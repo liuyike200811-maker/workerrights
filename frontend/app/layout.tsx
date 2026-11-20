@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
+import { GuideProvider } from "@/components/guide/guide-provider";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,12 +10,12 @@ export const metadata: Metadata = {
     template: "%s · 工友权益助手",
   },
   description:
-    "面向河南建筑工人的劳动权益 Agent：用日常语言描述欠薪遭遇，逐步追问、检索法律、生成行动指南，并辅助完成官方平台填报。",
+    "面向劳动者的劳动权益助手：用日常语言描述你遇到的纠纷，逐步追问、检索法律、生成行动指南，并帮你整理交给官方平台的材料（不代替你提交）。",
   icons: { icon: "/icon.svg" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0e2f54",
+  themeColor: "#5f211d",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -22,7 +24,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <GuideProvider>{children}</GuideProvider>
+      </body>
     </html>
   );
 }

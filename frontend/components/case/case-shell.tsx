@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertCircle,
   ArrowLeft,
   ClipboardList,
   FileText,
@@ -20,13 +21,14 @@ import { StartCaseButton } from "@/components/home/start-actions";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
+import { intakeStage } from "@/lib/intake-progress";
 import { cn, statusLabel } from "@/lib/utils";
 
 const tabs = [
   { href: "", label: "对话", icon: MessageSquareText },
   { href: "/analysis", label: "案件分析", icon: ClipboardList },
   { href: "/action-plan", label: "行动指南", icon: Route },
-  { href: "/form-assistant", label: "官方填报", icon: FileText },
+  { href: "/form-assistant", label: "填报参考", icon: FileText },
 ];
 
 export function CaseShell({ children }: { children: React.ReactNode }) {
@@ -36,7 +38,7 @@ export function CaseShell({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-ink-50">
+      <div className="flex min-h-screen items-center justify-center bg-transparent">
         <Spinner label="正在读取案件…" />
       </div>
     );
@@ -44,7 +46,7 @@ export function CaseShell({ children }: { children: React.ReactNode }) {
 
   if (error || !caseData) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ink-50 px-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-transparent px-6 text-center">
         <BrandLogo />
         <h1 className="mt-4 text-xl font-bold text-ink-900">无法打开这个案件</h1>
         <p className="max-w-md text-sm leading-relaxed text-ink-500">
@@ -62,10 +64,10 @@ export function CaseShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const confirmed = caseData.intake.confirmed;
+  const stage = intakeStage(caseData.progress, caseData.intake, caseData.messages, caseData.status);
 
   return (
-    <div className="min-h-screen bg-ink-50 pb-24 lg:pb-0">
+    <div className="min-h-screen bg-transparent pb-24 lg:pb-0">
       <header className="sticky top-0 z-40 border-b border-ink-200/80 bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="flex h-16 items-center justify-between gap-3">
@@ -85,7 +87,7 @@ export function CaseShell({ children }: { children: React.ReactNode }) {
                   {caseData.is_demo && <Badge variant="warning">虚构演示</Badge>}
                 </div>
                 <p className="mt-0.5 hidden text-[11px] text-ink-400 sm:block">
-                  {statusLabel(caseData.status)} · 信息整理 {caseData.progress.percent}%
+                  {statusLabel(caseData.status)} · {stage.headline}
                 </p>
               </div>
             </div>
@@ -111,18 +113,24 @@ export function CaseShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3 pb-3">
             <div className="flex flex-1 items-center gap-2">
-              <Progress value={caseData.progress.percent} className="h-1.5 max-w-xs" />
+              <Progress value={stage.barValue} className="h-1.5 max-w-xs" />
               <span className="hidden text-[10px] font-medium text-ink-400 sm:inline">
-                {caseData.progress.done}/{caseData.progress.total} 项
+                核心事实 {stage.core.done}/{stage.core.total}
+                {stage.optional.total ? ` · 可选 ${stage.optional.done}/${stage.optional.total}` : ""}
               </span>
             </div>
-            {confirmed ? (
+            {stage.confirmed ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 信息已确认
               </span>
+            ) : stage.fullButUnconfirmed ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700">
+                <AlertCircle className="h-3.5 w-3.5" />
+                尚未确认
+              </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700">
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-ink-500">
                 <Sparkles className="h-3.5 w-3.5" />
                 正在补充信息
               </span>
