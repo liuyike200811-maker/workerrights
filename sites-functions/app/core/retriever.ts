@@ -1,4 +1,5 @@
 import { CHANNELS, LEGAL_DOCUMENTS } from "../knowledge/data.ts";
+import { mentionsHenan, type RegionScope } from "./regions.ts";
 import type { ChannelPayload, LegalDocumentPayload, SerializedProvision } from "./types.ts";
 import { pyRound } from "./util.ts";
 
@@ -139,7 +140,7 @@ export class LegalRetriever {
     ].join(" ");
   }
 
-  private score(index: number, queryTokens: string[], rawQuery: string): number {
+  private score(index: number, queryTokens: string[], rawQuery: string, region?: RegionScope | null): number {
     const provision = this.provisions[index];
     const counts = this.tokenCounts[index];
     const length = Math.max([...counts.values()].reduce((a, b) => a + b, 0), 1);
@@ -157,20 +158,23 @@ export class LegalRetriever {
     for (const topic of provision.topics) {
       if (topic && rawQuery.includes(topic)) score += 1.2;
     }
-    if (provision.region === "henan" && (rawQuery.includes("河南") || rawQuery.includes("郑州"))) {
-      score += 0.4;
+    if (provision.region === "henan") {
+      if (region === "henan") score += 0.5;
+      else if (rawQuery.includes("河南") || rawQuery.includes("郑州")) score += 0.4;
     }
     if (provision.verification_status === "pending") score -= 0.2;
     return score;
   }
 
-  search(query: string, topK = 8, minScore = 0.35, ids?: string[] | null): SerializedProvision[] {
+  search(query: string, topK = 8, minScore = 0.35, ids?: string[] | null, region?: RegionScope | null): SerializedProvision[] {
     if (!this.provisions.length) return [];
+    const allowHenan = region === "henan" || (region !== "national" && mentionsHenan(query));
     const queryTokens = tokenize(query);
     const scored: Array<{ score: number; index: number }> = [];
     for (let index = 0; index < this.provisions.length; index += 1) {
       if (ids && !ids.includes(this.provisions[index].id)) continue;
-      scored.push({ score: this.score(index, queryTokens, query), index });
+      if (!allowHenan && this.provisions[index].region !== "national") continue;
+      scored.push({ score: this.score(index, queryTokens, query, region), index });
     }
     scored.sort((a, b) => b.score - a.score || b.index - a.index);
     const results: SerializedProvision[] = [];

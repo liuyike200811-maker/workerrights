@@ -21,9 +21,26 @@ def test_retrieval_finds_construction_wage_rules(client):
     data = response.json()
     ids = {item["id"] for item in data["results"]}
     assert "mwpr-30" in ids
-    assert "lcl-30" in ids
-    assert "lsr-20" in ids
+    # A Henan location surfaces local provisions alongside national rules.
+    assert any(item.startswith(("hnlsr-", "hnbzj-", "hnzh-")) for item in ids)
     assert data["results"][0]["document"]["official_url"]
+
+
+def test_national_scope_excludes_henan_provisions(client):
+    response = client.get(
+        "/api/v1/legal/search",
+        params={"q": "建筑工地 欠薪 包工头 总包 分包 工资 支付", "top_k": 10, "region": "national"},
+    )
+    assert response.status_code == 200
+    ids = {item["id"] for item in response.json()["results"]}
+    assert "lcl-30" in ids
+    assert not any(item.startswith(("hnlsr-", "hnbzj-", "hnzh-")) for item in ids)
+
+    limitation = client.get(
+        "/api/v1/legal/search",
+        params={"q": "劳动保障监察 时效 2年 查处", "top_k": 5, "region": "national"},
+    )
+    assert "lsr-20" in {item["id"] for item in limitation.json()["results"]}
 
 
 def test_regions_cover_henan_counties(client):

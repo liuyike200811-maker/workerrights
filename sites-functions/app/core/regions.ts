@@ -114,3 +114,27 @@ export function resolveDistrict(
   }
   return null;
 }
+
+export type RegionScope = "henan" | "national";
+
+// Local provisions follow the worksite location: Henan facts unlock Henan
+// material, a known non-Henan location restricts to national material, and an
+// unknown location falls back to query-text detection (national by default).
+export function caseRegionScope(facts: { location_province?: unknown; location_city?: unknown }): RegionScope | null {
+  const province = typeof facts.location_province === "string" ? facts.location_province : null;
+  const city = typeof facts.location_city === "string" ? facts.location_city : null;
+  if ((province && province.includes("河南")) || resolveCity(city)) return "henan";
+  if (province || city) return "national";
+  return null;
+}
+
+const HENAN_HINTS: string[] = ["河南"];
+for (const city of REGIONS.cities) {
+  HENAN_HINTS.push(city.name);
+  const short = stripSuffix(city.name, "市");
+  if (short && short !== city.name) HENAN_HINTS.push(short);
+}
+
+export function mentionsHenan(text: string): boolean {
+  return HENAN_HINTS.some((hint) => text.includes(hint));
+}

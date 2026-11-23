@@ -6,6 +6,7 @@ import { appendMessage, getIntent, getOwnedCase, saveCase, updateIntent, type Db
 import type { CaseRow, SerializedProvision } from "../core/types.ts";
 import { deepClone } from "../core/util.ts";
 import type { LegalRetriever } from "../core/retriever.ts";
+import { caseRegionScope } from "../core/regions.ts";
 import { CloudAgentsError } from "./cloud-agents.mjs";
 import { BLOCKED_REPLY, OUT_OF_SCOPE, URGENT, classifyData, parseReview, parseRoute, reviewData, type ScopeRoute } from "./boundary.ts";
 import type { Coordinator, Lease } from "./coordinator.ts";
@@ -136,7 +137,8 @@ export async function driveTurn(
 
     const original = stateFromCase(caseRow, text);
     const noFollowup = detectsNoFollowup(text);
-    const searchLaw = (query: string) => deps.retriever.search(query, 4);
+    const regionScope = caseRegionScope(original.facts);
+    const searchLaw = (query: string) => deps.retriever.search(query, 4, 0.35, null, regionScope);
 
     // Send the prompt exactly once; reconcile an ambiguous send by history.
     if (!intent!.prompt_event_id) {

@@ -381,7 +381,7 @@ const nullable = (type: string) => ({ type: [type, "null"] });
 export const TOOL_DESCRIPTIONS: Record<string, string> = {
   update_case_memory: "保存用户本轮明确陈述的目标、联系偏好/限制、已采取行动及反馈。goal 只在变化时填；constraints 若填须保留仍有效的限制；event 记录本次进展，区分承诺和到账。source_quote 逐字来自本轮。没有变化不调用。",
   record_facts: "记录或纠正用户明确说过的事实；source_quote逐字来自本轮用户消息。也可引用同一案件已保存的用户原话补记缺失字段，但历史不能覆盖已有值/更正，不能引用助手推测。patch仅包含变化字段，证据列表为合并后的完整列表。",
-  search_law: "查询本地法律条文；保留核验状态，不能当作已在线核验。",
+  search_law: "查询本地法律条文；地方条文以工地所在地为准，结果中的适用条件须如实转述；保留核验状态，不能当作已在线核验。",
   check_amounts: "用程序核对已记录的总额、已付与欠款，返回冲突，不自动改金额。",
   inspect_evidence: "根据当前事实查看已有证据及缺口。",
   prepare_materials: "根据已记录事实生成待核对的事实陈述和证据目录草稿。",
