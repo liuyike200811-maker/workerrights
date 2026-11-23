@@ -271,6 +271,31 @@ class CaseAnalysisAgent:
                 supporting.append("需要注意劳动保障监察2年查处时效。")
                 pending.append("需确认违法行为发生或终了的时间。")
                 applicability = "时效风险提示"
+            elif provision_id == "hnlsr-15":
+                supporting.append("如向河南项目所在地劳动保障监察机构投诉，监察机构应在七日内决定是否立案并通知你。")
+                pending.append("需确认投诉已提交并被接收；是否立案由监察机构依法决定。")
+                applicability = "仅适用于河南省内的监察投诉程序"
+            elif provision_id == "hnlsr-16":
+                supporting.append("河南省内监察查处一般自立案之日起三十日内结案，复杂案件经批准最多延长三十日。")
+                pending.append("需确认是否已立案及立案时间。")
+                applicability = "仅适用于河南省内的监察办案时限"
+            elif provision_id == "hnlsr-21":
+                supporting.append("河南省内克扣、无故拖欠工资等情形，劳动保障行政部门可责令限期支付，并可责令加付一至五倍赔偿金。")
+                pending.append("赔偿金需经劳动保障行政部门责令支付等行政程序，不是投诉时自动获得。")
+                applicability = "仅适用于河南省内，需先经行政处理程序"
+            elif provision_id == "hnzh-16":
+                if facts.get("recruiter_type") == "包工头" or facts.get("subcontractor_name"):
+                    supporting.append("你描述由包工头或劳务方招用，河南省内总包单位对农民工工资支付负总责，推行委托总包代发。")
+                pending.append("需核实项目总包单位和分包关系。")
+                applicability = "仅适用于河南省工程建设领域"
+            elif provision_id == "hnzh-13":
+                supporting.append("河南省内建设单位应按约定向总包专用账户拨付人工费用，周期不得超过1个月；未按约定拨付的纳入欠薪预警。")
+                pending.append("需核实项目人工费用拨付情况，可向监管部门反映核查。")
+                applicability = "仅适用于河南省工程建设领域"
+            elif provision_id == "hnbzj-26":
+                supporting.append("河南省内工程拖欠工资，经责令限期清偿或先行清偿而总包到期拒不履行的，可动用工资保证金或保函直接支付。")
+                pending.append("需先经人社部门责令清偿程序，且总包到期拒不履行；保证金是否存储需核实。")
+                applicability = "仅适用于河南省工程建设领域，需满足行政处理前置条件"
 
             items.append(
                 {
@@ -315,7 +340,7 @@ class CaseAnalysisAgent:
             confidence = "low"
             guidance = "工作城市尚未确认，暂时无法判断具体管辖。请先补充项目所在城市和区县，或拨打12333咨询。"
         return {
-            "province": facts.get("location_province") or "河南省",
+            "province": facts.get("location_province") or None,
             "city": city,
             "district": district,
             "primary_agency": "项目所在地人力资源社会保障部门劳动保障监察机构",

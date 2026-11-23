@@ -178,7 +178,9 @@ export function application(deps: AppDeps) {
       const q = (url.searchParams.get("q") ?? "").trim();
       if (!q || q.length > 300) httpError(422, "检索词长度需在 1 到 300 之间。");
       const topK = Math.min(20, Math.max(1, Number(url.searchParams.get("top_k") ?? 8) || 8));
-      return json({ query: q, results: retriever.search(q, topK), disclaimer: "检索结果来自本地知识库；请以官方原文为准。" });
+      const region = url.searchParams.get("region");
+      if (region !== null && region !== "henan" && region !== "national") httpError(422, "region 仅支持 henan 或 national。");
+      return json({ query: q, results: retriever.search(q, topK, 0.35, null, region), disclaimer: "检索结果来自本地知识库；地方条文以工地所在地为准，请以官方原文为准。" });
     }
 
     const owner = ownerId(deps, context);
@@ -385,10 +387,12 @@ async function updateFacts(db: Db, caseRow: CaseRow, updates: Record<string, unk
   const before = deepClone(caseRow.facts);
   caseRow.facts = { ...caseRow.facts, ...normalized };
   if (caseRow.facts.location_city) {
-    caseRow.facts.location_province = "河南省";
     const city = REGION_INDEX[caseRow.facts.location_city];
-    const district = caseRow.facts.location_district;
-    if (city && district && !(district in city.districts)) caseRow.facts.location_district = null;
+    if (city) {
+      caseRow.facts.location_province = "河南省";
+      const district = caseRow.facts.location_district;
+      if (district && !(district in city.districts)) caseRow.facts.location_district = null;
+    }
   }
   caseRow.title = buildCaseTitle(caseRow.facts);
 

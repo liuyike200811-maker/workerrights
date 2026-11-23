@@ -1,4 +1,5 @@
 import { EVIDENCE_CATALOG } from "./evidence.ts";
+import { KNOWLEDGE_VERSION } from "../knowledge/data.ts";
 import { REGION_INDEX } from "./regions.ts";
 import type { ProviderInfo } from "./types.ts";
 
@@ -62,6 +63,7 @@ export function metaPayload(): Record<string, unknown> {
     scenes: SCENES,
     cities: Object.values(REGION_INDEX).map((city) => city.name),
     provider: QCA_PROVIDER,
+    knowledge_version: KNOWLEDGE_VERSION,
     evidence_catalog: EVIDENCE_CATALOG,
     privacy: {
       session_scoped: true,
@@ -73,7 +75,8 @@ export function metaPayload(): Record<string, unknown> {
     limitations: [
       "首期完整支持河南省建筑工地欠薪场景，其他场景显示为待开放。",
       "不自动登录、不自动提交任何政府平台。",
-      "本地法律知识库中的河南地方政策均为待核验，不作为最终法律依据。",
+      "地方条文以工地所在地为准；外省案件不适用河南条文，地点未知时优先提供全国资料。",
+      "法律知识库中标注“待核验”的内容不作为最终法律依据；已核验条文以官方原文为准。",
       "本产品不承诺追回工资或胜诉。",
     ],
     disclaimer: "工友权益助手提供信息整理、法律资料检索和办事路径参考，不构成正式法律意见。复杂案件请拨打12348或咨询专业律师。",

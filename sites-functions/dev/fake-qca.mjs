@@ -11,6 +11,7 @@ export function createFakeQca(options = {}) {
     reviewAllowed = true,
     reviewReason = "回复在服务范围内",
     recordFactsArgs = { patch: { location_city: "郑州市", work_type: "钢筋工" } },
+    searchLawQuery = null,
     respondArgs = { reply: "我记下了。", response_kind: "chat", next_question: null, stage: "waiting_user", citation_ids: [] },
     modelCredits = 0.5,
   } = options;
@@ -68,6 +69,21 @@ export function createFakeQca(options = {}) {
       }
       for (const result of toolResults) {
         if (session.phase === "await_record" && result.custom_tool_use_id === session.pendingCall) {
+          if (searchLawQuery) {
+            session.phase = "await_search";
+            emit(session, "span.model_request_start", {});
+            const call = emit(session, "agent.custom_tool_use", { name: "search_law", input: { query: searchLawQuery } });
+            session.pendingCall = call.id;
+            emit(session, "session.status_idle", { stop_reason: { type: "requires_action" } });
+            continue;
+          }
+          session.phase = "await_respond";
+          emit(session, "span.model_request_start", {});
+          const call = emit(session, "agent.custom_tool_use", { name: "respond", input: respondArgs });
+          session.pendingCall = call.id;
+          emit(session, "session.usage", { model_credits: modelCredits, sandbox_runtime_credits: 0, total_credits: modelCredits });
+          emit(session, "session.status_idle", { stop_reason: { type: "requires_action" } });
+        } else if (session.phase === "await_search" && result.custom_tool_use_id === session.pendingCall) {
           session.phase = "await_respond";
           emit(session, "span.model_request_start", {});
           const call = emit(session, "agent.custom_tool_use", { name: "respond", input: respondArgs });

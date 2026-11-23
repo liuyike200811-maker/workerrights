@@ -276,11 +276,12 @@ def update_facts(
     before = deepcopy(case.facts)
     case.facts = {**case.facts, **normalized}
     if case.facts.get("location_city"):
-        case.facts["location_province"] = "河南省"
         city = REGION_INDEX.get(case.facts["location_city"])
-        district = case.facts.get("location_district")
-        if city and district and district not in city["districts"]:
-            case.facts["location_district"] = None
+        if city:
+            case.facts["location_province"] = "河南省"
+            district = case.facts.get("location_district")
+            if district and district not in city["districts"]:
+                case.facts["location_district"] = None
     case.title = build_case_title(case.facts)
 
     intake = dict(case.intake or {})
@@ -511,13 +512,16 @@ def create_demo(
 def legal_search(
     q: str = Query(min_length=1, max_length=300),
     top_k: int = Query(default=8, ge=1, le=20),
+    region: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> dict:
+    if region is not None and region not in ("henan", "national"):
+        raise HTTPException(status_code=422, detail="region 仅支持 henan 或 national。")
     retriever = LegalRetriever(db)
     return {
         "query": q,
-        "results": retriever.search(q, top_k=top_k),
-        "disclaimer": "检索结果来自本地知识库；请以官方原文为准。",
+        "results": retriever.search(q, top_k=top_k, region=region),
+        "disclaimer": "检索结果来自本地知识库；地方条文以工地所在地为准，请以官方原文为准。",
     }
 
 

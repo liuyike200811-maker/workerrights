@@ -4,6 +4,7 @@ from collections import Counter
 
 from sqlalchemy.orm import Session
 
+from backend.legal.loader import load_regions
 from backend.models.legal import LegalDocument, LegalProvision
 
 CJK_BLOCK = re.compile(r"[\u4e00-\u9fff]+")
@@ -36,6 +37,34 @@ def tokenize(text: str) -> list[str]:
         tokens.extend(block[index : index + 2] for index in range(len(block) - 1))
     tokens.extend(ASCII_WORD.findall(normalized))
     return [token for token in tokens if token not in STOP_BIGRAMS]
+
+
+def _henan_hints() -> list[str]:
+    hints = ["河南"]
+    for city in load_regions()["cities"]:
+        hints.append(city["name"])
+        short = city["name"].removesuffix("市")
+        if short and short != city["name"]:
+            hints.append(short)
+    return hints
+
+
+HENAN_HINTS = _henan_hints()
+
+
+def mentions_henan(text: str) -> bool:
+    return any(hint in text for hint in HENAN_HINTS)
+
+
+def case_region_scope(facts: dict) -> str | None:
+    """Local provisions follow the worksite location (Henan / national / unknown)."""
+    province = facts.get("location_province")
+    city = facts.get("location_city")
+    if (province and "河南" in province) or (city and city in HENAN_HINTS):
+        return "henan"
+    if province or city:
+        return "national"
+    return None
 
 
 def _provision_document(provision: LegalProvision) -> dict:
@@ -113,7 +142,7 @@ class LegalRetriever:
             ]
         )
 
-    def _score(self, index: int, query_tokens: list[str], raw_query: str) -> float:
+    def _score(self, index: int, query_tokens: list[str], raw_query: str, region: str | None = None) -> float:
         provision = self.provisions[index]
         counts = self._token_counts[index]
         length = max(sum(counts.values()), 1)
@@ -131,8 +160,11 @@ class LegalRetriever:
         for topic in provision.topics or []:
             if topic and topic in raw_query:
                 score += 1.2
-        if provision.document.region == "henan" and ("河南" in raw_query or "郑州" in raw_query):
-            score += 0.4
+        if provision.document.region == "henan":
+            if region == "henan":
+                score += 0.5
+            elif "河南" in raw_query or "郑州" in raw_query:
+                score += 0.4
         if provision.verification_status == "pending":
             score -= 0.2
         return score
@@ -143,15 +175,19 @@ class LegalRetriever:
         top_k: int = 8,
         min_score: float = 0.35,
         ids: list[str] | None = None,
+        region: str | None = None,
     ) -> list[dict]:
         if not self.provisions:
             return []
+        allow_henan = region == "henan" or (region != "national" and mentions_henan(query))
         query_tokens = tokenize(query)
         scored: list[tuple[float, int]] = []
         for index, provision in enumerate(self.provisions):
             if ids and provision.id not in ids:
                 continue
-            score = self._score(index, query_tokens, query)
+            if not allow_henan and provision.document.region != "national":
+                continue
+            score = self._score(index, query_tokens, query, region)
             scored.append((score, index))
         scored.sort(reverse=True)
         results: list[dict] = []

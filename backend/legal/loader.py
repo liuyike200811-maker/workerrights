@@ -16,9 +16,14 @@ def load_legal_documents() -> list[dict]:
     documents: list[dict] = []
     for path in sorted((KNOWLEDGE_DIR / "national").glob("*.json")):
         documents.append(_read_json(path))
-    henan_path = KNOWLEDGE_DIR / "henan" / "policies-pending.json"
-    if henan_path.exists():
-        documents.extend(_read_json(henan_path).get("documents", []))
+    for path in sorted((KNOWLEDGE_DIR / "henan").glob("*.json")):
+        if path.name == "regions.json":
+            continue
+        payload = _read_json(path)
+        if isinstance(payload.get("documents"), list):
+            documents.extend(payload["documents"])
+        else:
+            documents.append(payload)
     return documents
 
 

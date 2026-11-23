@@ -1,6 +1,6 @@
 from backend.agents.intake import IntakeAgent
 from backend.config import settings
-from backend.legal.retriever import LegalRetriever
+from backend.legal.retriever import LegalRetriever, case_region_scope
 from backend.models.case import Message
 from backend.services.facts import build_case_title, required_progress
 from .runtime import AgentState
@@ -29,7 +29,8 @@ class AgentIntake(IntakeAgent):
                            stage=intake.get("agent_stage", "waiting_user"), history=history,
                            citations=intake.get("agent_citations", {}), memory=intake.get("agent_memory", {}),
                            materials=intake.get("agent_materials", {}))
-        runtime = ScopedAgentRuntime(self.provider, lambda query: LegalRetriever(self.db).search(query, top_k=4),
+        region_scope = case_region_scope(case.facts)
+        runtime = ScopedAgentRuntime(self.provider, lambda query: LegalRetriever(self.db).search(query, top_k=4, region=region_scope),
                                max_steps=settings.agent_max_steps)
         result = runtime.run(state, text, emit=emit)
         case.facts = result.state.facts
